@@ -1,0 +1,8 @@
+custom_agents_enabled = true                          # Just a flag to enable
+custom_agents_path = "/workspace/custom_agents"       # Your base directory
+
+[[agents.custom]]
+name = "PandasMigrationAgent"                         # Internal name for OpenHands
+module_path = "pandas_migration_agent.agent"          # Path to Python module
+class_name = "EnhancedPandasMigrationAgent"          # Class name in agent.py
+display_name = "Pandas Migration Agent (0.19 → 1.1.5)" # What users see in UI
