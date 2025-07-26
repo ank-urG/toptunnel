@@ -11,6 +11,7 @@ import subprocess
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from pathlib import Path
+import yaml
 
 from openhands.controller.agent import Agent
 from openhands.controller.state.state import State
@@ -33,9 +34,11 @@ from openhands.llm.llm import LLM
 from openhands.runtime.plugins import AgentSkillsRequirement, PluginRequirement
 
 from .migration_rules import MigrationRuleEngine
+from .backward_compatible_rules import BackwardCompatibleMigrationEngine
 from .test_runner import TestRunner
 from .report_generator import MigrationReportGenerator
 from .compatibility_checker import CompatibilityChecker
+from .robust_migration_workflow import RobustMigrationWorkflow
 from .utils import (
     find_python_files,
     backup_file,
@@ -43,6 +46,7 @@ from .utils import (
     parse_test_output,
     extract_pandas_imports,
 )
+from .tools import AnalyzeTool, MigrateTool, TestTool, ReportTool
 
 
 class EnhancedPandasMigrationAgent(Agent):
@@ -69,9 +73,16 @@ class EnhancedPandasMigrationAgent(Agent):
         
         # Initialize components
         self.rule_engine = MigrationRuleEngine()
+        self.backward_compatible_engine = BackwardCompatibleMigrationEngine()
         self.test_runner = TestRunner()
         self.report_generator = MigrationReportGenerator()
         self.compatibility_checker = CompatibilityChecker()
+        
+        # Ensure we use backward compatible rules by default
+        self.use_backward_compatible = True
+        
+        # Initialize robust workflow
+        self.robust_workflow = RobustMigrationWorkflow(self)
         
         # Migration state
         self.migration_state = {
@@ -84,6 +95,23 @@ class EnhancedPandasMigrationAgent(Agent):
             'start_time': None,
             'end_time': None,
         }
+        
+        # Load configuration from YAML if available
+        self._load_config()
+        
+        # Initialize tools
+        self.analyze_tool = AnalyzeTool(self)
+        self.migrate_tool = MigrateTool(self)
+        self.test_tool = TestTool(self)
+        self.report_tool = ReportTool(self)
+        
+        # Register tools for OpenHands
+        self.tools = [
+            self.analyze_tool,
+            self.migrate_tool,
+            self.test_tool,
+            self.report_tool
+        ]
         
         # Configuration
         self.config_options = {
@@ -198,20 +226,18 @@ class EnhancedPandasMigrationAgent(Agent):
         )
     
     def _perform_migration(self, state: State) -> Action:
-        """Perform the actual migration of files."""
-        # Get next file to migrate
-        files_to_process = [
-            f for f in self.migration_state['files_to_migrate']
-            if f not in self.migration_state['migration_results']
-        ]
+        """Perform the actual migration using robust workflow."""
+        repo_path = self.migration_state['current_repo']
         
-        if not files_to_process:
-            return MessageAction("All files have been migrated.")
-        
-        current_file = files_to_process[0]
-        return FileReadAction(
-            path=current_file,
-            thought=f"Reading file for migration: {current_file}"
+        # Use the robust workflow for complete migration
+        return MessageAction(
+            "Starting robust migration workflow...\n"
+            "This will:\n"
+            "1. Discover safe Python files (excluding configs)\n"
+            "2. Run tests with pandas 0.19.2\n"
+            "3. Apply backward-compatible migrations\n"
+            "4. Test in BOTH pandas environments\n"
+            "5. Validate and rollback if needed"
         )
     
     def _run_post_migration_tests(self, state: State) -> Action:
@@ -296,3 +322,42 @@ class EnhancedPandasMigrationAgent(Agent):
         """Get the path to the generated report."""
         # This would be set when the report is generated
         return getattr(self, '_report_path', 'No report generated')
+    
+    def _load_config(self):
+        """Load configuration from config.yaml if available."""
+        config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    self.yaml_config = yaml.safe_load(f)
+                    logger.info(f"Loaded configuration from {config_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load config.yaml: {e}")
+                self.yaml_config = {}
+        else:
+            self.yaml_config = {}
+    
+    def _load_prompt(self, prompt_type: str = 'system') -> str:
+        """Load prompt from file.
+        
+        Args:
+            prompt_type: Type of prompt ('system' or 'user_template')
+            
+        Returns:
+            Prompt content
+        """
+        if prompt_type == 'system':
+            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'system_prompt.md')
+        else:
+            prompt_path = os.path.join(os.path.dirname(__file__), 'prompts', 'user_prompt_template.md')
+        
+        if os.path.exists(prompt_path):
+            with open(prompt_path, 'r') as f:
+                return f.read()
+        else:
+            logger.warning(f"Prompt file not found: {prompt_path}")
+            return ""
+    
+    def get_system_message(self) -> str:
+        """Get the system message for the agent."""
+        return self._load_prompt('system')

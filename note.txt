@@ -6,3 +6,30 @@ name = "PandasMigrationAgent"                         # Internal name for OpenHa
 module_path = "pandas_migration_agent.agent"          # Path to Python module
 class_name = "EnhancedPandasMigrationAgent"          # Class name in agent.py
 display_name = "Pandas Migration Agent (0.19 → 1.1.5)" # What users see in UI
+
+I have our codebase running in python-3.6 with pandas-0.19.2 there are multiple  │
+│   microservices, now I want to upgrade pandas version-1.1.5 but due to few         │
+│   removed features like pd.Panel and pd.OLS etc\                                   │
+│   \                                                                                │
+│   So i have created a Panel class in aqr.core.panel.py module which can be         │
+│   directly imported similiarly OLS class in aqr.stats.ols.py these module can be   │
+│   imported anywhere as it is and they behave the same as pandas one used to be,    │
+│   some other changes removed like valid(), sort(), pd.rolling_func() and other     │
+│   deprecated or removed things like ix etc\                                        │
+│   \                                                                                │
+│    in my machine with some name   
+
+     I want to create an agent in openhands folder so      │
+│   that it can migrate all the repos one by one for which I give him the task run   │
+│   all the unit tests and it tests and make sure every changes is backward          │
+│   compatible. Backward compatibility is the most importtant things, I have few     │
+│   other list of changes which could be replaced as backward compatible changes,    │
+│   After migrating the repo, it should create a final report like what were the     │
+│   failures, what fix was made, list of file changes, categorised list of unit      │
+│   tests and it tests with success or failure mark and all these thing should only  │
+│   be run in two pandas-0.19 and pandas-1.1.5 runtime no other versions of any of   │
+│   this and all the packages version can be found in the runtimes itself, don't     │
+│   assume any version by itself. \                                                  │
+│   Can you create that agent for me, well modular and customizable and robust       │
+│   agent with all the features a developer could do                                 │
+╰─────────────────────────────────────────────────────

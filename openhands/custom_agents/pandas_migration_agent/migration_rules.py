@@ -78,14 +78,15 @@ class MigrationRuleEngine:
     def _initialize_rules(self) -> List[MigrationRule]:
         """Initialize the default migration rules."""
         return [
-            # Panel replacement
+            # Panel replacement - ONLY if aqr.core.panel exists
             MigrationRule(
                 name="replace_pd_panel",
                 pattern=r"pd\.Panel\s*\(",
                 replacement="Panel(",
                 priority=MigrationPriority.CRITICAL,
                 description="Replace pd.Panel with custom Panel class",
-                requires_import={"from aqr.core.panel import Panel": "aqr.core.panel"}
+                requires_import={"from aqr.core.panel import Panel": "aqr.core.panel"},
+                test_pattern=r"pd\.Panel"  # Only apply if Panel is used
             ),
             
             # OLS replacement
