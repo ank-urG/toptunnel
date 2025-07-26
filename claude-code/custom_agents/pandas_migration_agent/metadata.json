@@ -1,0 +1,44 @@
+{
+  "name": "PandasMigrationAgent",
+  "display_name": "Pandas Migration Agent (0.19 → 1.1.5)",
+  "version": "1.0.0",
+  "description": "Automated migration from pandas 0.19.2 to 1.1.5 with comprehensive testing and backward compatibility",
+  "author": "OpenHands Community",
+  "icon": "🐼",
+  "tags": ["migration", "pandas", "python", "testing", "automation"],
+  "category": "Development Tools",
+  "priority": 10,
+  "beta": false,
+  "capabilities": [
+    "Analyze repository for pandas usage and deprecated features",
+    "Apply migration rules with custom import mappings",
+    "Run tests in both pandas environments",
+    "Generate detailed migration reports",
+    "Automatic backups and rollback support"
+  ],
+  "requirements": [
+    "Conda environments: py36-1.1.10 (pandas 0.19.2)",
+    "Conda environments: pandas_115_final (pandas 1.1.5)",
+    "Python 3.6+ in target repository"
+  ],
+  "sample_prompts": [
+    "Migrate my repository from pandas 0.19.2 to 1.1.5",
+    "Analyze /workspace/myproject for pandas compatibility issues",
+    "Run migration with test validation on my project",
+    "Generate a migration report for my pandas upgrade"
+  ],
+  "configuration": {
+    "custom_import_mappings": {
+      "pd.Panel": "aqr.core.panel.Panel",
+      "pd.ols": "aqr.stats.ols.OLS",
+      "pd.stats.ols.OLS": "aqr.stats.ols.OLS"
+    },
+    "conda_environments": {
+      "0.19.2": "py36-1.1.10",
+      "1.1.5": "pandas_115_final"
+    },
+    "auto_rollback_on_failure": true,
+    "create_backups": true,
+    "test_timeout": 300
+  }
+}
