@@ -56,6 +56,17 @@ class TestRunner:
         }
         self.test_timeout = 300  # 5 minutes default
         
+        # Check if running on Windows and handle custom runtime paths
+        import platform
+        self.is_windows = platform.system() == 'Windows'
+        self.custom_env_paths = {}
+        
+        if self.is_windows:
+            # On Windows, py36-1.1.10 might be in a custom location
+            custom_py36_path = r"C:\LocalRuntimes\py36-1.1.10"
+            if os.path.exists(custom_py36_path):
+                self.custom_env_paths["py36-1.1.10"] = custom_py36_path
+        
     def run_tests(self, 
                   repo_path: str, 
                   pandas_version: str,
@@ -213,11 +224,20 @@ class TestRunner:
             test_command = test_command.replace("unittest", "xmlrunner")
         
         # Prepare the command to run in conda environment
-        # Use conda run to execute in the specific environment
-        if test_command.startswith("python"):
-            full_command = f"conda run -n {conda_env} {test_command}"
+        # Check if this environment has a custom path (Windows)
+        if conda_env in self.custom_env_paths:
+            # Use the custom runtime directly
+            python_exe = os.path.join(self.custom_env_paths[conda_env], "python.exe" if self.is_windows else "bin/python")
+            if test_command.startswith("python"):
+                full_command = test_command.replace("python", python_exe, 1)
+            else:
+                full_command = f"{python_exe} -m {test_command}"
         else:
-            full_command = f"conda run -n {conda_env} python -m {test_command}"
+            # Use standard conda run
+            if test_command.startswith("python"):
+                full_command = f"conda run -n {conda_env} {test_command}"
+            else:
+                full_command = f"conda run -n {conda_env} python -m {test_command}"
         
         # Execute tests
         try:

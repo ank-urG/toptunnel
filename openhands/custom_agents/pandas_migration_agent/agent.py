@@ -35,6 +35,7 @@ from openhands.runtime.plugins import AgentSkillsRequirement, PluginRequirement
 
 from .migration_rules import MigrationRuleEngine
 from .backward_compatible_rules import BackwardCompatibleMigrationEngine
+from .direct_replacement_rules import DirectReplacementEngine
 from .test_runner import TestRunner
 from .report_generator import MigrationReportGenerator
 from .compatibility_checker import CompatibilityChecker
@@ -74,12 +75,14 @@ class EnhancedPandasMigrationAgent(Agent):
         # Initialize components
         self.rule_engine = MigrationRuleEngine()
         self.backward_compatible_engine = BackwardCompatibleMigrationEngine()
+        self.direct_replacement_engine = DirectReplacementEngine()  # NEW: Direct replacements
         self.test_runner = TestRunner()
         self.report_generator = MigrationReportGenerator()
         self.compatibility_checker = CompatibilityChecker()
         
-        # Ensure we use backward compatible rules by default
-        self.use_backward_compatible = True
+        # Use direct replacements instead of compatibility wrappers
+        self.use_direct_replacements = True
+        self.use_backward_compatible = False  # Disable wrapper approach
         
         # Initialize robust workflow
         self.robust_workflow = RobustMigrationWorkflow(self)

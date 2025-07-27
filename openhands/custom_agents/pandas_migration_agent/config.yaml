@@ -36,6 +36,10 @@ conda_environments:
   "0.19.2": "py36-1.1.10"
   "1.1.5": "pandas_115_final"
 
+# Windows-specific runtime paths
+windows_runtime_paths:
+  "py36-1.1.10": "C:\\LocalRuntimes\\py36-1.1.10"
+
 # Import mappings for deprecated features
 custom_import_mappings:
   "pd.Panel": "aqr.core.panel.Panel"

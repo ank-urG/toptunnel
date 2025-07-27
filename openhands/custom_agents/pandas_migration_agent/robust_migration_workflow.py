@@ -23,7 +23,12 @@ class RobustMigrationWorkflow:
             agent: Parent PandasMigrationAgent instance
         """
         self.agent = agent
-        self.engine = BackwardCompatibleMigrationEngine()
+        # Use direct replacement engine if available, otherwise fall back
+        if hasattr(agent, 'direct_replacement_engine') and agent.use_direct_replacements:
+            from .direct_replacement_rules import DirectReplacementEngine
+            self.engine = agent.direct_replacement_engine
+        else:
+            self.engine = BackwardCompatibleMigrationEngine()
         self.test_runner = TestRunner()
         
         # Use agent's conda environment configuration
@@ -257,6 +262,28 @@ class RobustMigrationWorkflow:
                 if 'pandas' not in original_content and 'pd.' not in original_content:
                     continue
                 
+                # CRITICAL: Check if file uses pandas.util.testing or other compatible imports
+                # These work in BOTH pandas 0.19.2 and 1.1.5 - DO NOT CHANGE
+                compatible_imports = [
+                    'pandas.util.testing',
+                    'pd.util.testing',
+                    'from pandas.util.testing import',
+                    'from pandas.util import testing',
+                ]
+                
+                has_compatible_imports = any(imp in original_content for imp in compatible_imports)
+                
+                if has_compatible_imports:
+                    # Test if it actually works in both versions before skipping
+                    compat_test = self.compatibility_tester.test_code_compatibility(file_path)
+                    if not compat_test['needs_migration']:
+                        results['migrated_files'][file_path] = {
+                            'status': 'skipped',
+                            'reason': 'File uses compatible imports that work in both pandas versions',
+                            'changes': []
+                        }
+                        continue
+                
                 # Create backup
                 backup_path = backup_file(file_path)
                 results['backups'][file_path] = backup_path
@@ -276,15 +303,27 @@ class RobustMigrationWorkflow:
                     }
                     continue
                 
-                # Validate backward compatibility
-                compat_check = self.engine.validate_compatibility(migrated_content)
-                if not compat_check['compatible']:
-                    results['migrated_files'][file_path] = {
-                        'status': 'compatibility_error',
-                        'issues': compat_check['issues'],
-                        'changes': changes
-                    }
-                    continue
+                # Validate changes based on engine type
+                if hasattr(self.engine, 'validate_changes'):
+                    # For direct replacement engine
+                    validation = self.engine.validate_changes(original_content, migrated_content)
+                    if not validation['valid']:
+                        results['migrated_files'][file_path] = {
+                            'status': 'validation_error',
+                            'issues': ['Contains compatibility wrappers'] if validation.get('has_wrappers') else validation.get('error', 'Unknown error'),
+                            'changes': changes
+                        }
+                        continue
+                elif hasattr(self.engine, 'validate_compatibility'):
+                    # For backward compatible engine (legacy)
+                    compat_check = self.engine.validate_compatibility(migrated_content)
+                    if not compat_check['compatible']:
+                        results['migrated_files'][file_path] = {
+                            'status': 'compatibility_error',
+                            'issues': compat_check['issues'],
+                            'changes': changes
+                        }
+                        continue
                 
                 # Write migrated content
                 if changes:  # Only write if changes were made

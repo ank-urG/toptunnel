@@ -6,6 +6,8 @@ A powerful, automated agent for migrating Python codebases from pandas 0.19.2 to
 
 The Pandas Migration Agent is designed to handle the complex task of upgrading pandas versions in large codebases with multiple microservices. It automatically identifies deprecated features, applies migration rules, runs tests in both environments, and generates detailed reports.
 
+**Core Philosophy: "If it ain't broke, don't fix it!"** - The agent only modifies code that actually has compatibility issues. If your code already works in both pandas 0.19.2 and 1.1.5, it won't be touched.
+
 ## Key Features
 
 ### 🔍 Intelligent Code Analysis
@@ -14,11 +16,12 @@ The Pandas Migration Agent is designed to handle the complex task of upgrading p
 - Analyzes pandas API usage patterns
 - Performs AST-based code transformations
 
-### 🔄 Automated Migration
-- Replaces deprecated features with compatible alternatives
+### 🔄 Automated Migration - Direct Replacements Only
+- **Direct API replacements** that work in BOTH pandas 0.19.2 and 1.1.5
+- **NO compatibility wrappers or monkey-patching**
 - Handles custom import mappings (e.g., `pd.Panel` → `aqr.core.panel.Panel`)
-- Applies migration rules in priority order (Critical → High → Medium → Low)
-- Validates syntax after each transformation
+- Clean code transformations (e.g., `.sort()` → `.sort_values()`, `.ix[]` → `.loc[]/.iloc[]`)
+- Validates that no wrappers are added
 
 ### 🧪 Comprehensive Testing
 - Runs tests in both pandas 0.19.2 and 1.1.5 environments
@@ -37,6 +40,7 @@ The Pandas Migration Agent is designed to handle the complex task of upgrading p
 - Supports rollback on migration failure
 - Validates code syntax after migration
 - Maintains strict backward compatibility
+- **Never modifies imports that work in both versions** (e.g., `pandas.util.testing`)
 
 ## Prerequisites
 

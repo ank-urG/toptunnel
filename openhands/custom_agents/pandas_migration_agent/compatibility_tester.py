@@ -18,6 +18,16 @@ class CompatibilityTester:
             conda_envs: Mapping of pandas versions to conda environment names
         """
         self.conda_envs = conda_envs
+        
+        # Check for Windows custom paths
+        import platform
+        self.is_windows = platform.system() == 'Windows'
+        self.custom_env_paths = {}
+        
+        if self.is_windows:
+            custom_py36_path = r"C:\LocalRuntimes\py36-1.1.10"
+            if os.path.exists(custom_py36_path):
+                self.custom_env_paths["py36-1.1.10"] = custom_py36_path
     
     def test_code_compatibility(self, file_path: str) -> Dict[str, Any]:
         """Test if a file works in both pandas versions.
@@ -101,8 +111,14 @@ except Exception as e:
             test_script_path = f.name
         
         try:
-            # Run test in conda environment
-            cmd = f"conda run -n {conda_env} python {test_script_path}"
+            # Run test in conda environment or custom path
+            if conda_env in self.custom_env_paths:
+                python_exe = os.path.join(self.custom_env_paths[conda_env], 
+                                         "python.exe" if self.is_windows else "bin/python")
+                cmd = f"{python_exe} {test_script_path}"
+            else:
+                cmd = f"conda run -n {conda_env} python {test_script_path}"
+            
             result = subprocess.run(
                 cmd,
                 shell=True,
@@ -160,15 +176,39 @@ except Exception as e:
             'rolling_std': r'pd\.rolling_std',
         }
         
+        # IMPORTANT: APIs that work in BOTH versions and should NOT be changed
+        compatible_in_both = {
+            'pandas.util.testing': True,  # Works in both 0.19.2 and 1.1.5
+            'pd.util.testing': True,       # Works in both versions
+            'pandas.tseries': True,        # Available in both versions
+            'pandas.compat': True,         # Available in both versions
+        }
+        
         usage = {}
         for api, pattern in potentially_incompatible.items():
             import re
             if re.search(pattern, content):
                 usage[api] = True
         
+        # Check for imports that should NOT be changed
+        import_patterns = [
+            r'from\s+pandas\.util\.testing\s+import',
+            r'import\s+pandas\.util\.testing',
+            r'from\s+pandas\.util\s+import\s+testing',
+            r'import\s+pandas\.util\.testing\s+as',
+        ]
+        
+        uses_compatible_imports = False
+        for pattern in import_patterns:
+            if re.search(pattern, content):
+                uses_compatible_imports = True
+                break
+        
         return {
             'uses_potentially_incompatible_apis': len(usage) > 0,
-            'apis_used': list(usage.keys())
+            'apis_used': list(usage.keys()),
+            'uses_compatible_imports': uses_compatible_imports,
+            'note': 'pandas.util.testing works in both versions - no changes needed'
         }
 
 
@@ -205,6 +245,14 @@ class PreMigrationChecker:
         
         # Check if it uses potentially incompatible APIs
         api_check = self.tester.check_pandas_api_usage(file_path)
+        
+        # CRITICAL: If file uses compatible imports, check if they actually work
+        if api_check.get('uses_compatible_imports'):
+            # Test compatibility before deciding
+            compat_result = self.tester.test_code_compatibility(file_path)
+            if not compat_result['needs_migration']:
+                return False, "Uses pandas.util.testing or other imports that work in both versions"
+        
         if not api_check['uses_potentially_incompatible_apis']:
             return False, "No potentially incompatible pandas APIs used"
         

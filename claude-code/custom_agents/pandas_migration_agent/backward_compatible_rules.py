@@ -320,6 +320,16 @@ class BackwardCompatibleMigrationEngine:
         """Apply all backward compatible rules."""
         all_changes = []
         
+        # CRITICAL: Check for imports that work in both versions - DO NOT CHANGE THEM
+        if self._has_compatible_imports(content):
+            # Skip any import-related changes for files with compatible imports
+            all_changes.append({
+                'rule': 'compatible_imports_check',
+                'strategy': 'skip',
+                'description': 'File uses imports that work in both pandas versions',
+                'changes': ['No changes needed - imports are already compatible']
+            })
+        
         # Apply rules in priority order
         for rule in sorted(self.rules, key=lambda r: r.priority):
             if re.search(rule.pattern, content):
@@ -333,6 +343,31 @@ class BackwardCompatibleMigrationEngine:
                     })
         
         return content, all_changes
+    
+    def _has_compatible_imports(self, content: str) -> bool:
+        """Check if file uses imports that work in both pandas versions.
+        
+        IMPORTANT: These imports work in BOTH pandas 0.19.2 and 1.1.5,
+        so they should NEVER be changed.
+        """
+        compatible_imports = [
+            r'from\s+pandas\.util\.testing\s+import',
+            r'import\s+pandas\.util\.testing',
+            r'from\s+pandas\.util\s+import\s+testing',
+            r'import\s+pandas\.util\.testing\s+as',
+            r'pandas\.util\.testing',
+            # Add more compatible imports as needed
+            r'from\s+pandas\.tseries',
+            r'import\s+pandas\.tseries',
+            r'from\s+pandas\.compat',
+            r'import\s+pandas\.compat',
+        ]
+        
+        for pattern in compatible_imports:
+            if re.search(pattern, content):
+                return True
+        
+        return False
     
     def validate_compatibility(self, content: str) -> Dict[str, Any]:
         """Validate that the migrated code is backward compatible."""

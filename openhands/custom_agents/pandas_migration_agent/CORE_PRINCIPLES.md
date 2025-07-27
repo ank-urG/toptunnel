@@ -16,12 +16,13 @@
 - ❌ pytest.ini, tox.ini, Makefile
 - ❌ Any build or package configuration
 
-## 3. BACKWARD COMPATIBILITY
+## 3. DIRECT REPLACEMENTS ONLY
 
-**All migrations MUST work in both versions:**
-- Uses compatibility wrappers, not direct replacements
-- Adds fallback code for older pandas
-- Tests in BOTH environments to verify
+**No compatibility wrappers or monkey-patching:**
+- Makes direct API replacements that work in BOTH versions
+- NO compatibility modules or wrapper functions
+- NO monkey-patching or runtime checks
+- Only uses APIs available in both pandas 0.19.2 and 1.1.5
 
 ## 4. TEST-DRIVEN MIGRATION
 
@@ -50,6 +51,18 @@ result = df.loc[0, 'A']   # Already using loc
 ```
 **Result: NO CHANGES - Already works in both versions**
 
+### File A.5: Compatible Imports ✅
+```python
+import pandas as pd
+from pandas.util.testing import assert_frame_equal  # Works in BOTH versions!
+
+def test_something():
+    df1 = pd.DataFrame({'A': [1, 2, 3]})
+    df2 = pd.DataFrame({'A': [1, 2, 3]})
+    assert_frame_equal(df1, df2)
+```
+**Result: NO CHANGES - pandas.util.testing works in both 0.19.2 and 1.1.5**
+
 ### File B: Needs Migration ⚠️
 ```python
 import pandas as pd
@@ -57,7 +70,13 @@ df = pd.DataFrame({'A': [1, 2, 3]})
 df = df.sort('A')         # Deprecated
 result = df.ix[0, 'A']    # Deprecated
 ```
-**Result: MIGRATED with compatibility wrappers**
+**Result: DIRECT REPLACEMENTS**
+```python
+import pandas as pd
+df = pd.DataFrame({'A': [1, 2, 3]})
+df = df.sort_values('A')  # Direct replacement
+result = df.loc[0, 'A']   # Direct replacement
+```
 
 ### File C: Configuration ❌
 ```python
