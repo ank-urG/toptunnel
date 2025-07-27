@@ -89,10 +89,77 @@ panel = Panel(data)
 ```python
 # BEFORE (removed from pandas)
 model = pd.ols(y=df['y'], x=df[['x1', 'x2']])
+model2 = pd.ols(y=returns_df, x=factors_df)  # y is DataFrame
 
 # AFTER (using your custom implementation)
 from aqr.stats.ols import OLS
 model = OLS(y=df['y'], x=df[['x1', 'x2']])
+model2 = OLS(y=returns_df, x=factors_df, pool=True)  # pool=True when y is DataFrame
+```
+
+### 9. Stack with Empty DataFrame Check
+```python
+# BEFORE (fails on empty DataFrame)
+result = df.stack()
+
+# AFTER (handles empty DataFrame)
+result = (df.stack() if not df.empty else pd.Series(dtype=object))
+```
+
+### 10. DatetimeIndex Import Path
+```python
+# BEFORE (old import path)
+from pandas.tseries.offsets import DatetimeIndex
+
+# AFTER (correct import path)
+from pandas import DatetimeIndex
+```
+
+### 11. DatetimeIndex Constructor → date_range
+```python
+# BEFORE (old constructor)
+idx = pd.DatetimeIndex('2020-01-01', '2020-12-31', freq='D')
+
+# AFTER (use date_range)
+idx = pd.date_range('2020-01-01', '2020-12-31', freq='D')
+```
+
+### 12. DataFrame - Series → .sub()
+```python
+# BEFORE (implicit subtraction)
+adjusted = df - df['baseline']
+normalized = prices - prices['mean']
+
+# AFTER (explicit subtraction)
+adjusted = df.sub(df['baseline'], axis=0)
+normalized = prices.sub(prices['mean'], axis=0)
+```
+
+### 13. pd.to_timedelta with months → DateOffset
+```python
+# BEFORE (months not properly supported)
+offset = pd.to_timedelta(3, unit='M')
+monthly = pd.to_timedelta(1, unit='M')
+
+# AFTER (use DateOffset)
+offset = pd.DateOffset(months=3)
+monthly = pd.DateOffset(months=1)
+```
+
+### 14. Timestamp Overflow Handling
+```python
+# BEFORE (can overflow)
+offset_end = end + head * offset
+
+# AFTER (with overflow protection)
+try:
+    offset_end = end + head * offset
+except (OverflowError, pd.errors.OutOfBoundsDatetime):
+    import warnings
+    from pandas import Timestamp
+    msg = 'Offset beyond Timestamp range. Defaulting to max timestamp %s' % Timestamp.max
+    warnings.warn(msg, UserWarning)
+    offset_end = Timestamp.max
 ```
 
 ## What the Agent Does NOT Do

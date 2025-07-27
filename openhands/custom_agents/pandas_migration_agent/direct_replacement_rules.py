@@ -44,22 +44,35 @@ class DirectReplacementEngine:
                 description="Replace .as_matrix() with .values - available in both versions"
             ),
             DirectReplacementRule(
-                name="valid_to_notnull",
+                name="valid_to_dropna",
                 pattern=r'\.valid\s*\(\s*\)',
-                replacement='.notnull()',
-                description="Replace .valid() with .notnull() - available in both versions"
+                replacement='.dropna()',
+                description="Replace .valid() with .dropna() - available in both versions"
             ),
             DirectReplacementRule(
                 name="TimeGrouper_to_Grouper",
                 pattern=r'pd\.TimeGrouper\s*\(',
-                replacement='pd.Grouper(',
+                replacement='pd.Grouper(freq=',
                 description="Replace pd.TimeGrouper with pd.Grouper - available since 0.16.1"
+            ),
+            DirectReplacementRule(
+                name="TimeGrouper_BM",
+                pattern=r"pd\.TimeGrouper\s*\(\s*['\"]BM['\"]\s*\)",
+                replacement="pd.Grouper(freq='BM')",
+                description="Replace pd.TimeGrouper('BM') with pd.Grouper(freq='BM')"
             ),
             DirectReplacementRule(
                 name="sortlevel_to_sort_index",
                 pattern=r'\.sortlevel\s*\(',
                 replacement='.sort_index(level=',
                 description="Replace .sortlevel() with .sort_index(level=) - available in both"
+            ),
+            # DatetimeIndex import fix
+            DirectReplacementRule(
+                name="datetimeindex_import",
+                pattern=r'from\s+pandas\.tseries\.offsets\s+import\s+DatetimeIndex',
+                replacement='from pandas import DatetimeIndex',
+                description="Fix DatetimeIndex import path"
             ),
             # Panel and OLS need custom handling
             DirectReplacementRule(
@@ -85,6 +98,13 @@ class DirectReplacementEngine:
                 pattern=r'pd\.ols\s*\(',
                 replacement='OLS(',  # Assumes OLS is imported
                 description="Replace pd.ols with OLS from aqr.stats.ols"
+            ),
+            # to_timedelta with unit='M'
+            DirectReplacementRule(
+                name="to_timedelta_months",
+                pattern=r"pd\.to_timedelta\s*\(\s*(\d+)\s*,\s*unit\s*=\s*['\"]M['\"]\s*\)",
+                replacement=r'pd.DateOffset(months=\1)',
+                description="Replace pd.to_timedelta(n, unit='M') with pd.DateOffset(months=n)"
             ),
         ]
     
@@ -118,6 +138,27 @@ class DirectReplacementEngine:
         modified_content, value_changes = self._handle_value_methods(modified_content)
         if value_changes:
             all_changes.extend(value_changes)
+        
+        # Handle more complex replacements
+        modified_content, stack_changes = self._handle_stack_empty_df(modified_content)
+        if stack_changes:
+            all_changes.extend(stack_changes)
+            
+        modified_content, dt_changes = self._handle_datetimeindex_constructor(modified_content)
+        if dt_changes:
+            all_changes.extend(dt_changes)
+            
+        modified_content, sub_changes = self._handle_df_subtraction(modified_content)
+        if sub_changes:
+            all_changes.extend(sub_changes)
+            
+        modified_content, ols_changes = self._handle_ols_pool_param(modified_content)
+        if ols_changes:
+            all_changes.extend(ols_changes)
+            
+        modified_content, overflow_changes = self._handle_timestamp_overflow(modified_content)
+        if overflow_changes:
+            all_changes.extend(overflow_changes)
         
         # Add necessary imports if Panel or OLS was replaced
         modified_content = self._add_necessary_imports(modified_content, all_changes)
@@ -261,6 +302,146 @@ class DirectReplacementEngine:
                 lines.insert(import_end, imp)
         
         return '\n'.join(lines)
+    
+    def _handle_stack_empty_df(self, content: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle stack() operation on empty DataFrames."""
+        changes = []
+        
+        # Pattern to find df.stack() calls
+        stack_pattern = r'(\w+)\.stack\s*\(\s*\)'
+        
+        def replace_stack(match):
+            var_name = match.group(1)
+            # Add empty check before stack
+            return f"({var_name}.stack() if not {var_name}.empty else pd.Series(dtype=object))"
+        
+        new_content, count = re.subn(stack_pattern, replace_stack, content)
+        if count > 0:
+            changes.append({
+                'rule': 'stack_empty_df',
+                'description': 'Add empty DataFrame check for stack() operation',
+                'count': count
+            })
+        
+        return new_content, changes
+    
+    def _handle_datetimeindex_constructor(self, content: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle DatetimeIndex constructor changes."""
+        changes = []
+        
+        # Pattern for pd.DatetimeIndex(start, end, freq)
+        dt_pattern = r'pd\.DatetimeIndex\s*\(\s*([^,]+),\s*([^,]+),\s*freq\s*=\s*([^)]+)\)'
+        
+        def replace_datetimeindex(match):
+            start = match.group(1)
+            end = match.group(2)
+            freq = match.group(3)
+            return f"pd.date_range({start}, {end}, freq={freq})"
+        
+        new_content, count = re.subn(dt_pattern, replace_datetimeindex, content)
+        if count > 0:
+            changes.append({
+                'rule': 'datetimeindex_constructor',
+                'description': 'Replace pd.DatetimeIndex(start, end, freq) with pd.date_range()',
+                'count': count
+            })
+        
+        return new_content, changes
+    
+    def _handle_df_subtraction(self, content: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle DataFrame subtraction with Series."""
+        changes = []
+        
+        # Pattern for df - df[col] operations
+        sub_pattern = r'(\w+)\s*-\s*\1\[([^\]]+)\]'
+        
+        def replace_subtraction(match):
+            df_name = match.group(1)
+            col = match.group(2)
+            return f"{df_name}.sub({df_name}[{col}], axis=0)"
+        
+        new_content, count = re.subn(sub_pattern, replace_subtraction, content)
+        if count > 0:
+            changes.append({
+                'rule': 'df_series_subtraction',
+                'description': 'Replace df - df[col] with df.sub(df[col], axis=0)',
+                'count': count
+            })
+        
+        return new_content, changes
+    
+    def _handle_ols_pool_param(self, content: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle OLS pool parameter for DataFrame y."""
+        changes = []
+        modified = content
+        
+        # Pattern for OLS calls
+        ols_pattern = r'OLS\s*\([^)]*y\s*=\s*([^,\)]+)'
+        
+        # Check if we need to add pool=True
+        matches = list(re.finditer(ols_pattern, modified))
+        for match in matches:
+            y_param = match.group(1).strip()
+            # Check if y is likely a DataFrame (contains df or DataFrame)
+            if 'df' in y_param.lower() or 'dataframe' in y_param.lower():
+                # Check if pool parameter is already present
+                full_match = match.group(0)
+                if 'pool' not in full_match:
+                    # Add pool=True parameter
+                    new_call = full_match.rstrip() + ', pool=True'
+                    modified = modified.replace(full_match, new_call)
+                    changes.append({
+                        'rule': 'ols_pool_parameter',
+                        'description': 'Add pool=True to OLS when y is DataFrame',
+                        'count': 1
+                    })
+        
+        return modified, changes
+    
+    def _handle_timestamp_overflow(self, content: str) -> Tuple[str, List[Dict[str, Any]]]:
+        """Handle timestamp overflow errors."""
+        changes = []
+        
+        # Pattern for offset calculations that might overflow
+        offset_pattern = r'(\w+)\s*\+\s*(\w+)\s*\*\s*(\w+)'
+        
+        # Check if this looks like a timestamp offset calculation
+        if 'offset' in content and ('Timestamp' in content or 'timestamp' in content):
+            # Wrap potential overflow operations in try-except
+            lines = content.split('\n')
+            modified_lines = []
+            
+            for i, line in enumerate(lines):
+                if re.search(offset_pattern, line) and ('end' in line or 'offset' in line):
+                    # Add try-except wrapper
+                    indent = len(line) - len(line.lstrip())
+                    indent_str = ' ' * indent
+                    
+                    modified_lines.append(f"{indent_str}try:")
+                    modified_lines.append(f"{indent_str}    {line.strip()}")
+                    modified_lines.append(f"{indent_str}except (OverflowError, pd.errors.OutOfBoundsDatetime):")
+                    modified_lines.append(f"{indent_str}    import warnings")
+                    modified_lines.append(f"{indent_str}    from pandas import Timestamp")
+                    modified_lines.append(f"{indent_str}    msg = 'Offset beyond Timestamp range. Defaulting to max timestamp %s' % Timestamp.max")
+                    modified_lines.append(f"{indent_str}    warnings.warn(msg, UserWarning)")
+                    
+                    # Extract variable name from assignment
+                    if '=' in line:
+                        var_name = line.split('=')[0].strip()
+                        modified_lines.append(f"{indent_str}    {var_name} = Timestamp.max")
+                    
+                    changes.append({
+                        'rule': 'timestamp_overflow_handling',
+                        'description': 'Add overflow handling for timestamp calculations',
+                        'count': 1
+                    })
+                else:
+                    modified_lines.append(line)
+            
+            if changes:
+                return '\n'.join(modified_lines), changes
+        
+        return content, []
     
     def validate_changes(self, original: str, modified: str) -> Dict[str, Any]:
         """Validate that changes don't break the code."""
