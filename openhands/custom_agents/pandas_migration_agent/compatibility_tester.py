@@ -246,12 +246,8 @@ class PreMigrationChecker:
         # Check if it uses potentially incompatible APIs
         api_check = self.tester.check_pandas_api_usage(file_path)
         
-        # CRITICAL: If file uses compatible imports, check if they actually work
-        if api_check.get('uses_compatible_imports'):
-            # Test compatibility before deciding
-            compat_result = self.tester.test_code_compatibility(file_path)
-            if not compat_result['needs_migration']:
-                return False, "Uses pandas.util.testing or other imports that work in both versions"
+        # Note: Even if file uses compatible imports like pandas.util.testing,
+        # it might still have OTHER deprecated APIs that need migration
         
         if not api_check['uses_potentially_incompatible_apis']:
             return False, "No potentially incompatible pandas APIs used"

@@ -113,8 +113,20 @@ class DirectReplacementEngine:
         all_changes = []
         modified_content = content
         
+        # List of imports that should NEVER be changed
+        do_not_change_imports = [
+            r'from\s+pandas\.util\.testing\s+import',
+            r'import\s+pandas\.util\.testing',
+            r'pandas\.util\.testing',
+            # Add more if needed
+        ]
+        
         # Apply simple regex replacements first
         for rule in self.rules:
+            # Skip import rules if they match our do-not-change list
+            if any(re.search(pattern, rule.pattern) for pattern in do_not_change_imports):
+                continue
+                
             if not rule.complex and re.search(rule.pattern, modified_content):
                 modified_content, count = re.subn(rule.pattern, rule.replacement, modified_content)
                 if count > 0:

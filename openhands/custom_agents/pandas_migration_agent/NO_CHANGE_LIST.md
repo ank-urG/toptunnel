@@ -2,6 +2,8 @@
 
 ## Critical: These Work in BOTH pandas 0.19.2 and 1.1.5
 
+**IMPORTANT CLARIFICATION**: The agent will NOT change these specific imports, BUT it will still fix other deprecated APIs in the same file!
+
 ### Testing Utilities
 - `pandas.util.testing` - Available in both versions
 - `from pandas.util.testing import assert_frame_equal`
@@ -40,16 +42,28 @@ The agent now:
 3. If it works in both, marks it as "skipped" with reason
 4. Never applies any migration rules to these files
 
-## Example
+## Example - Mixed File Behavior
 
 ```python
-# This file should NEVER be changed by the agent
+# This import will NOT be changed - it works in both versions
 from pandas.util.testing import assert_frame_equal
 
-def test_my_function():
-    result = my_function()
-    expected = pd.DataFrame({'A': [1, 2, 3]})
+import pandas as pd
+
+def test_function():
+    df = pd.DataFrame({'A': [1, 2, 3]})
+    
+    # BUT these deprecated APIs in the same file WILL be changed:
+    sorted_df = df.sort('A')           # -> df.sort_values('A')
+    val = df.ix[0, 'A']                # -> df.loc[0, 'A']
+    panel = pd.Panel(data)             # -> Panel(data) with aqr import
+    valid = df.valid()                 # -> df.dropna()
+    
+    # This compatible import usage remains unchanged
     assert_frame_equal(result, expected)
 ```
 
-Even if wrapped in try/except, if it works in both versions, leave it alone!
+**Summary**: The agent is smart enough to:
+1. Leave `pandas.util.testing` imports alone (they work in both versions)
+2. Still fix other deprecated APIs in the same file
+3. Not skip the entire file just because it has compatible imports

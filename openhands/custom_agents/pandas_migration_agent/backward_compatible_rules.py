@@ -320,15 +320,8 @@ class BackwardCompatibleMigrationEngine:
         """Apply all backward compatible rules."""
         all_changes = []
         
-        # CRITICAL: Check for imports that work in both versions - DO NOT CHANGE THEM
-        if self._has_compatible_imports(content):
-            # Skip any import-related changes for files with compatible imports
-            all_changes.append({
-                'rule': 'compatible_imports_check',
-                'strategy': 'skip',
-                'description': 'File uses imports that work in both pandas versions',
-                'changes': ['No changes needed - imports are already compatible']
-            })
+        # NOTE: We should NOT skip the entire file just because it has compatible imports
+        # The file might still have other deprecated APIs that need fixing
         
         # Apply rules in priority order
         for rule in sorted(self.rules, key=lambda r: r.priority):

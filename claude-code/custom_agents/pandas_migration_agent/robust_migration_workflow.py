@@ -262,27 +262,9 @@ class RobustMigrationWorkflow:
                 if 'pandas' not in original_content and 'pd.' not in original_content:
                     continue
                 
-                # CRITICAL: Check if file uses pandas.util.testing or other compatible imports
-                # These work in BOTH pandas 0.19.2 and 1.1.5 - DO NOT CHANGE
-                compatible_imports = [
-                    'pandas.util.testing',
-                    'pd.util.testing',
-                    'from pandas.util.testing import',
-                    'from pandas.util import testing',
-                ]
-                
-                has_compatible_imports = any(imp in original_content for imp in compatible_imports)
-                
-                if has_compatible_imports:
-                    # Test if it actually works in both versions before skipping
-                    compat_test = self.compatibility_tester.test_code_compatibility(file_path)
-                    if not compat_test['needs_migration']:
-                        results['migrated_files'][file_path] = {
-                            'status': 'skipped',
-                            'reason': 'File uses compatible imports that work in both pandas versions',
-                            'changes': []
-                        }
-                        continue
+                # NOTE: We do NOT skip files just because they have pandas.util.testing
+                # The file might still have other deprecated APIs that need fixing
+                # The replacement engine will handle what to change and what to leave alone
                 
                 # Create backup
                 backup_path = backup_file(file_path)
