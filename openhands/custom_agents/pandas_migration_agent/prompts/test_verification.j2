@@ -1,0 +1,106 @@
+# Test Verification Prompt
+
+## Test Execution Instructions
+
+You need to verify that the migrated code works correctly in both pandas environments.
+
+### Step 1: Check for test configuration files
+Look for test configuration files in the following order:
+- unittest.ini
+- unittest.cfg
+- it_test.ini
+- it_test.cfg
+
+If found, pytest will automatically use it with the `-c` option.
+
+### Step 2: Activate pandas 1.1.5 environment
+```bash
+# Activate runtime: pandas_115_final
+```
+
+### Step 3: Run tests in pandas 1.1.5
+```python
+# The test runner will automatically detect and use config files
+# If unittest.ini exists: pytest -c unittest.ini {{ test_file }}
+# Otherwise: pytest {{ test_file }}
+{{ test_command }}
+```
+
+### Step 4: Activate pandas 0.19.2 environment
+```bash
+# Activate runtime: py36-1.1.10
+# Note: This runtime is at C:\LocalRuntimes
+```
+
+### Step 4: Configure AQR libraries if needed
+```python
+import sys
+sys.path.append(r'C:\Workspace')
+# Import any required AQR libraries
+```
+
+### Step 5: Run tests in pandas 0.19.2
+```python
+# Run the same test
+{{ test_command }}
+```
+
+## Expected Results:
+- All tests should pass in BOTH environments
+- No deprecation warnings related to the migrated code
+- Identical output/behavior in both versions
+
+## Iterative Test-Fix Workflow:
+
+When tests fail, follow this iterative approach:
+
+1. **STOP immediately when a test fails**
+   - Do not continue to other tests
+   - Focus on fixing the failing test first
+
+2. **Analyze the failure**
+   - Check the error message and stack trace
+   - Identify if it's a migration issue or test assumption issue
+
+3. **Fix the specific test**
+   - Apply targeted fixes for the failing test
+   - Do not modify working code
+
+4. **Re-run ONLY the failing test**
+   ```bash
+   # Run specific test with config file
+   pytest -c unittest.ini test_file.py::test_function_name
+   ```
+
+5. **Repeat until the test passes**
+   - Keep fixing and re-running the same test
+   - Only move to the next test after current one passes
+
+## If Tests Fail:
+
+1. **In pandas 1.1.5 only**: The migration introduced a regression
+   - Review the changes and ensure they follow the new API correctly
+   
+2. **In pandas 0.19.2 only**: The migration broke backward compatibility
+   - Use a different approach that works in both versions
+   - Consider using try/except blocks for version-specific code
+   
+3. **In both versions**: The migration logic is incorrect
+   - Revert all changes
+   - Re-analyze the original code
+   - Try a different migration strategy
+
+## Test Report Format:
+```
+Environment: pandas 1.1.5 (pandas_115_final)
+Status: PASS/FAIL
+Output: [test output]
+Errors: [any errors or warnings]
+
+Environment: pandas 0.19.2 (py36-1.1.10)
+Status: PASS/FAIL
+Output: [test output]
+Errors: [any errors or warnings]
+
+Conclusion: [Summary of compatibility status]
+```

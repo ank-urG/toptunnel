@@ -1,0 +1,51 @@
+# Migration Analysis Prompt
+
+Analyze the following code for pandas API changes between versions 0.19.2 and 1.1.5:
+
+```python
+{{ code }}
+```
+
+## Analysis Steps:
+
+1. **Import Analysis**
+   - Check for deprecated import paths (e.g., pd.tseries.offsets)
+   - Identify usage of removed modules (e.g., pd.Panel)
+   - Look for AQR library imports that need PYTHONPATH configuration
+
+2. **API Usage Patterns**
+   - pd.ols() calls that need migration to statsmodels or aqr.stats.ols
+   - DataFrame/Series methods that changed (e.g., .valid(), .stack())
+   - Date/time constructor changes (pd.DatetimeIndex vs pd.date_range)
+   - Grouping API changes (TimeGrouper -> Grouper)
+
+3. **Potential Runtime Issues**
+   - OutOfBoundsDatetime exceptions with timestamp operations
+   - Empty DataFrame operations that may fail
+   - Arithmetic operations between DataFrames and Series
+
+4. **Backward Compatibility Assessment**
+   For each identified issue, determine:
+   - Can it be fixed with code that works in both versions?
+   - Does it require conditional logic based on pandas version?
+   - Are there AQR library alternatives that provide compatibility?
+
+## Output Format:
+```json
+{
+  "issues_found": [
+    {
+      "type": "api_change|import_change|behavior_change",
+      "description": "Clear description of the issue",
+      "line_numbers": [1, 2, 3],
+      "current_code": "pd.ols(y, x)",
+      "suggested_fix": "statsmodels.api.OLS(y, statsmodels.add_constant(x))",
+      "backward_compatible": true,
+      "requires_testing": true
+    }
+  ],
+  "aqr_dependencies": ["aqr.core.panel", "aqr.stats.ols"],
+  "risk_level": "low|medium|high",
+  "recommended_approach": "Description of migration strategy"
+}
+```

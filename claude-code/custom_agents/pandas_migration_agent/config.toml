@@ -1,0 +1,76 @@
+[agent]
+name = "PandasMigrationAgent"
+version = "1.0.0"
+description = "Pandas 0.19.2 to 1.1.5 migration agent with backward compatibility"
+
+[agent.capabilities]
+enable_cmd = true
+enable_think = true
+enable_finish = true
+enable_editor = true
+enable_jupyter = true
+enable_condensation_request = false
+enable_browsing = false
+enable_llm_editor = false
+
+[agent.prompts]
+system_prompt_filename = "system_prompt.j2"
+user_prompt_filename = "user_prompt.j2"
+
+[migration]
+source_version = "0.19.2"
+target_version = "1.1.5"
+backward_compatible = true
+preserve_functionality = true
+
+[migration.rules]
+apply_all = false
+rules = [
+    "panel_to_aqr",
+    "ols_migration",
+    "valid_to_dropna",
+    "datetime_import_fix",
+    "datetime_constructor_fix",
+    "df_series_operations",
+    "stack_empty_check",
+    "timegrouper_to_grouper",
+    "month_offset_fix",
+    "timestamp_exception_handling"
+]
+
+[migration.testing]
+test_before_migration = true
+test_after_migration = true
+stop_on_test_failure = true
+test_in_both_environments = true
+
+[runtimes.pandas_115]
+name = "pandas_115_final"
+pandas_version = "1.1.5"
+activation_command = "activate pandas_115_final"
+
+[runtimes.pandas_019]
+name = "py36-1.1.10"
+pandas_version = "0.19.2"
+location = "C:\\LocalRuntimes"
+activation_command = "C:\\LocalRuntimes\\py36-1.1.10\\Scripts\\activate"
+
+[aqr]
+workspace_path = "C:\\Workspace"
+auto_add_to_path = true
+required_modules = [
+    "aqr.core.panel",
+    "aqr.stats.ols"
+]
+
+[logging]
+level = "INFO"
+log_migrations = true
+log_test_results = true
+create_migration_report = true
+
+[safety]
+create_backups = true
+validate_transformations = true
+rollback_on_failure = true
+max_retries = 3

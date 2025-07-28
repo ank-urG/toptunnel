@@ -1,0 +1,32 @@
+I need to migrate the following code from pandas 0.19.2 to pandas 1.1.5 while maintaining backward compatibility.
+
+{% if file_path %}
+File: {{ file_path }}
+{% endif %}
+
+{% if code_snippet %}
+Code to migrate:
+```python
+{{ code_snippet }}
+```
+{% endif %}
+
+Please:
+1. First test the current code in both pandas environments to identify any compatibility issues
+2. Apply only the necessary backward-compatible changes based on the migration rules
+3. Test the migrated code in both environments to ensure it works correctly
+4. Report the results including:
+   - What changes were made and why
+   - Test results in both environments
+   - Any issues encountered and how they were resolved
+
+{% if specific_issues %}
+Known issues to address:
+{{ specific_issues }}
+{% endif %}
+
+Remember:
+- DO NOT change code that already works in both versions
+- ALWAYS test before and after changes
+- If tests fail, revert and try a different approach
+- Check for AQR library dependencies in C:\Workspace
